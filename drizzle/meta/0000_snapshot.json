@@ -1,0 +1,331 @@
+{
+  "id": "f60ff5d8-0545-48e1-96ed-b30d462f5175",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.order_transitions": {
+      "name": "order_transitions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_id": {
+          "name": "request_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_state": {
+          "name": "from_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "to_state": {
+          "name": "to_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event": {
+          "name": "event",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "failure": {
+          "name": "failure",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recovery_failure": {
+          "name": "recovery_failure",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "order_transitions_request_unique": {
+          "name": "order_transitions_request_unique",
+          "columns": [
+            {
+              "expression": "order_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "request_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "order_transitions_version_unique": {
+          "name": "order_transitions_version_unique",
+          "columns": [
+            {
+              "expression": "order_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "version",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "order_transitions_order_id_orders_id_fk": {
+          "name": "order_transitions_order_id_orders_id_fk",
+          "tableFrom": "order_transitions",
+          "tableTo": "orders",
+          "columnsFrom": [
+            "order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "order_transitions_request_nonempty": {
+          "name": "order_transitions_request_nonempty",
+          "value": "\"order_transitions\".\"request_id\" ~ '[^[:space:]]'"
+        },
+        "order_transitions_from_state_valid": {
+          "name": "order_transitions_from_state_valid",
+          "value": "\"order_transitions\".\"from_state\" is null or \"order_transitions\".\"from_state\" in ('initialized', 'payment_authorizing', 'payment_authorized', 'completing', 'payment_voiding', 'complete', 'rejected', 'cancelled', 'needs_attention')"
+        },
+        "order_transitions_to_state_valid": {
+          "name": "order_transitions_to_state_valid",
+          "value": "\"order_transitions\".\"to_state\" in ('initialized', 'payment_authorizing', 'payment_authorized', 'completing', 'payment_voiding', 'complete', 'rejected', 'cancelled', 'needs_attention')"
+        },
+        "order_transitions_event_valid": {
+          "name": "order_transitions_event_valid",
+          "value": "\"order_transitions\".\"event\" in ('order_initialized', 'payment_authorization_started', 'payment_authorized', 'payment_declined', 'completion_started', 'payment_void_started', 'order_completed', 'payment_voided', 'payment_void_failed', 'order_cancelled')"
+        },
+        "order_transitions_initialization_shape": {
+          "name": "order_transitions_initialization_shape",
+          "value": "(\n    (\"order_transitions\".\"version\" = 0 and \"order_transitions\".\"from_state\" is null\n      and \"order_transitions\".\"to_state\" = 'initialized' and \"order_transitions\".\"event\" = 'order_initialized')\n    or (\"order_transitions\".\"version\" > 0 and \"order_transitions\".\"from_state\" is not null\n      and \"order_transitions\".\"to_state\" <> 'initialized' and \"order_transitions\".\"event\" <> 'order_initialized')\n  )"
+        },
+        "order_transitions_failure_object": {
+          "name": "order_transitions_failure_object",
+          "value": "\"order_transitions\".\"failure\" is null or jsonb_typeof(\"order_transitions\".\"failure\") = 'object'"
+        },
+        "order_transitions_recovery_failure_object": {
+          "name": "order_transitions_recovery_failure_object",
+          "value": "\"order_transitions\".\"recovery_failure\" is null or jsonb_typeof(\"order_transitions\".\"recovery_failure\") = 'object'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.orders": {
+      "name": "orders",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'initialized'"
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "payment_authorization_id": {
+          "name": "payment_authorization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "authorization_idempotency_key": {
+          "name": "authorization_idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "void_idempotency_key": {
+          "name": "void_idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "orders_authorization_key_unique": {
+          "name": "orders_authorization_key_unique",
+          "columns": [
+            {
+              "expression": "authorization_idempotency_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "orders_void_key_unique": {
+          "name": "orders_void_key_unique",
+          "columns": [
+            {
+              "expression": "void_idempotency_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "orders_state_updated_at_idx": {
+          "name": "orders_state_updated_at_idx",
+          "columns": [
+            {
+              "expression": "state",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "orders_state_valid": {
+          "name": "orders_state_valid",
+          "value": "\"orders\".\"state\" in ('initialized', 'payment_authorizing', 'payment_authorized', 'completing', 'payment_voiding', 'complete', 'rejected', 'cancelled', 'needs_attention')"
+        },
+        "orders_version_nonnegative": {
+          "name": "orders_version_nonnegative",
+          "value": "\"orders\".\"version\" >= 0"
+        },
+        "orders_authorization_key_nonblank": {
+          "name": "orders_authorization_key_nonblank",
+          "value": "\"orders\".\"authorization_idempotency_key\" is null or \"orders\".\"authorization_idempotency_key\" ~ '[^[:space:]]'"
+        },
+        "orders_void_key_nonblank": {
+          "name": "orders_void_key_nonblank",
+          "value": "\"orders\".\"void_idempotency_key\" is null or \"orders\".\"void_idempotency_key\" ~ '[^[:space:]]'"
+        },
+        "orders_authorization_key_required": {
+          "name": "orders_authorization_key_required",
+          "value": "\"orders\".\"state\" in ('initialized', 'cancelled') or \"orders\".\"authorization_idempotency_key\" is not null"
+        },
+        "orders_void_key_required": {
+          "name": "orders_void_key_required",
+          "value": "\"orders\".\"state\" not in ('payment_voiding', 'needs_attention') or \"orders\".\"void_idempotency_key\" is not null"
+        },
+        "orders_cancelled_payment_shape": {
+          "name": "orders_cancelled_payment_shape",
+          "value": "\"orders\".\"state\" <> 'cancelled' or (\n    (\"orders\".\"authorization_idempotency_key\" is null and \"orders\".\"void_idempotency_key\" is null and \"orders\".\"payment_authorization_id\" is null)\n    or (\"orders\".\"authorization_idempotency_key\" is not null and \"orders\".\"void_idempotency_key\" is not null and \"orders\".\"payment_authorization_id\" is not null)\n  )"
+        },
+        "orders_operation_keys_distinct": {
+          "name": "orders_operation_keys_distinct",
+          "value": "\"orders\".\"authorization_idempotency_key\" is null or \"orders\".\"void_idempotency_key\" is null or \"orders\".\"authorization_idempotency_key\" <> \"orders\".\"void_idempotency_key\""
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
