@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { FailureDetails } from '../domain/order.js';
 import { OrderServiceError } from './order-service.js';
 import { InvalidTransitionError } from './invalid-transition-error.js';
 import type { OrderStore } from './order-store.js';
@@ -7,7 +8,15 @@ import type { OrderOperationCommand } from './order-types.js';
 import type { OrderClaim } from './order-transition-service-types.js';
 import type { OrderTransitionService } from './order-transition-service.js';
 
-/** Owns transactional claims, replay resolution and outcome version checks. */
+const FAILURES = {
+  declined: { code: 'PAYMENT_DECLINED', message: 'Payment authorization was declined.' },
+  authorizationUnknown: { code: 'AUTHORIZATION_UNCONFIRMED', message: 'Payment authorization requires reconciliation.' },
+  completionFailed: { code: 'COMPLETION_FAILED', message: 'Order completion failed.' },
+  completionUnknown: { code: 'COMPLETION_UNCONFIRMED', message: 'Order completion requires reconciliation.' },
+  voidFailed: { code: 'PAYMENT_VOID_UNCONFIRMED', message: 'Payment void requires manual attention.' },
+} as const satisfies Record<string, FailureDetails>;
+
+/** Owns lifecycle transition construction, replay resolution and outcome version checks. */
 export function createOrderTransitionService(store: OrderStore): OrderTransitionService {
   function startTransition(order: StoredOrder, operation: OrderOperation): Transition {
     const state = order.snapshot.state;
@@ -53,5 +62,42 @@ export function createOrderTransitionService(store: OrderStore): OrderTransition
     });
   }
 
-  return { claim, finish };
+  return {
+    claim,
+    recordAuthorizationOutcome(order, result) {
+      if (result?.status === 'authorized' && result.authorizationId.trim().length > 0) {
+        return finish(order, {
+          state: 'payment_authorized', event: 'payment_authorized', authorizationId: result.authorizationId,
+        });
+      }
+      if (result?.status === 'declined') {
+        return finish(order, { state: 'rejected', event: 'payment_declined', failure: FAILURES.declined });
+      }
+      return finish(order, {
+        state: 'needs_attention', event: 'payment_authorization_unconfirmed', failure: FAILURES.authorizationUnknown,
+      });
+    },
+    async recordCompletionOutcome(order, result) {
+      if (result.status === 'completed') {
+        return { nextAction: 'return', order: await finish(order, { state: 'complete', event: 'order_completed' }) };
+      }
+      if (result.status !== 'failed') {
+        return { nextAction: 'return', order: await finish(order, {
+          state: 'needs_attention', event: 'completion_unconfirmed', failure: FAILURES.completionUnknown,
+        }) };
+      }
+      return { nextAction: 'voidPayment', order: await finish(order, {
+        state: 'payment_voiding', event: 'payment_void_started', voidIdempotencyKey: `void:${randomUUID()}`,
+        failure: FAILURES.completionFailed,
+      }) };
+    },
+    recordVoidOutcome(order, result) {
+      // Carry forward the failure persisted when voiding began, if this is completion recovery.
+      const failure = order.snapshot.history.at(-1)?.failure;
+      const change: Transition = result?.status === 'voided'
+        ? { state: 'cancelled', event: 'payment_voided' }
+        : { state: 'needs_attention', event: 'payment_void_failed', recoveryFailure: FAILURES.voidFailed };
+      return finish(order, { ...change, ...(failure ? { failure } : {}) });
+    },
+  };
 }
