@@ -23,9 +23,9 @@ export function createOrderStore<Result extends PgQueryResultHKT, Schema extends
           failure: entry.failure, recoveryFailure: entry.recoveryFailure,
         })),
       },
-      authorizationKey: order.authorizationIdempotencyKey,
+      authorizationIdempotencyKey: order.authorizationIdempotencyKey,
       authorizationId: order.paymentAuthorizationId,
-      voidKey: order.voidIdempotencyKey,
+      voidIdempotencyKey: order.voidIdempotencyKey,
     };
   }
   return {
@@ -40,6 +40,7 @@ export function createOrderStore<Result extends PgQueryResultHKT, Schema extends
           });
           return { order: (await read(transaction, created)).snapshot, replayed: false };
         }
+        // Idempotent recovery: a retried creation returns the order already committed for this key.
         const [existing] = await transaction.select().from(orders)
           .where(eq(orders.creationRequestId, requestId)).for('share');
         if (!existing) throw new Error('Creation replay is missing its order.');
@@ -73,9 +74,9 @@ export function createOrderStore<Result extends PgQueryResultHKT, Schema extends
             if (!row) throw new Error('Missing locked order.');
             const [updated] = await transaction.update(orders).set({
               state: change.state, version: row.version + 1, updatedAt: new Date(),
-              ...(change.authorizationKey !== undefined ? { authorizationIdempotencyKey: change.authorizationKey } : {}),
+              ...(change.authorizationIdempotencyKey !== undefined ? { authorizationIdempotencyKey: change.authorizationIdempotencyKey } : {}),
               ...(change.authorizationId !== undefined ? { paymentAuthorizationId: change.authorizationId } : {}),
-              ...(change.voidKey !== undefined ? { voidIdempotencyKey: change.voidKey } : {}),
+              ...(change.voidIdempotencyKey !== undefined ? { voidIdempotencyKey: change.voidIdempotencyKey } : {}),
             }).where(and(eq(orders.id, orderId), eq(orders.state, row.state), eq(orders.version, row.version))).returning();
             if (!updated) throw new OrderServiceError('OPERATION_CONFLICT');
             await transaction.insert(orderTransitions).values({

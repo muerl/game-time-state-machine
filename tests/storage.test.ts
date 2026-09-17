@@ -37,7 +37,7 @@ async function createOrder() {
   });
 }
 
-function authorizationKey(orderId: string) { return `authorize:${orderId}`; }
+function authorizationIdempotencyKey(orderId: string) { return `authorize:${orderId}`; }
 
 // Fixture writes exercise the storage contract, not a production transition service.
 async function recordFixture(
@@ -48,7 +48,7 @@ async function recordFixture(
   await db.transaction(async (tx) => {
     const changed = await tx.update(orders).set({
       state: toState, version, updatedAt: new Date(),
-      ...(toState === 'payment_authorizing' ? { authorizationIdempotencyKey: authorizationKey(orderId) } : {}),
+      ...(toState === 'payment_authorizing' ? { authorizationIdempotencyKey: authorizationIdempotencyKey(orderId) } : {}),
       ...(toState === 'payment_voiding' ? { voidIdempotencyKey: `void:${orderId}` } : {}),
       ...(toState === 'payment_authorized' ? { paymentAuthorizationId: 'auth_test' } : {}),
     }).where(and(eq(orders.id, orderId), eq(orders.version, version - 1), eq(orders.state, fromState))).returning();
@@ -110,7 +110,7 @@ for (const scenario of [
     assert.equal(current.state, scenario.state);
     assert.equal(current.version, finalVersion);
     assert.equal(current.paymentAuthorizationId, authorized ? 'auth_test' : null);
-    assert.equal(current.authorizationIdempotencyKey, authorizationKey(order.id));
+    assert.equal(current.authorizationIdempotencyKey, authorizationIdempotencyKey(order.id));
     assert.equal(current.voidIdempotencyKey, needsVoid ? `void:${order.id}` : null);
     const history = await db.select().from(orderTransitions)
       .where(eq(orderTransitions.orderId, order.id)).orderBy(asc(orderTransitions.version));
@@ -223,7 +223,7 @@ test('failed writes roll back both creation and subsequent state/history updates
   const order = await createOrder();
   await assert.rejects(db.transaction(async (tx) => {
     await tx.update(orders).set({ state: 'payment_authorized', version: 1,
-      paymentAuthorizationId: 'auth_test', authorizationIdempotencyKey: authorizationKey(order.id), updatedAt: new Date(),
+      paymentAuthorizationId: 'auth_test', authorizationIdempotencyKey: authorizationIdempotencyKey(order.id), updatedAt: new Date(),
     }).where(eq(orders.id, order.id));
     await tx.insert(orderTransitions).values({
       orderId: order.id, requestId: 'authorize', fromState: 'initialized',
@@ -240,7 +240,7 @@ test('payment states require durable nonblank, distinct operation keys', async (
     await assert.rejects(db.insert(orders).values({ state }),
       rejectsConstraint('orders_authorization_key_required'));
   }
-  for (const state of ['payment_voiding', 'needs_attention'] as const) {
+  for (const state of ['payment_voiding'] as const) {
     await assert.rejects(db.insert(orders).values({ state, authorizationIdempotencyKey: randomUUID() }),
       rejectsConstraint('orders_void_key_required'));
   }

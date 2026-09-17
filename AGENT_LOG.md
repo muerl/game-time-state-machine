@@ -284,3 +284,16 @@ Shared running record of actions, outcomes, and concise decision summaries for e
 
 ### 2026-09-16T22:30:46-04:00 — /root — Git sandbox retry
 - Initial staging failed: sandbox denied creation of .git/index.lock. No commit occurred. Retrying the authorized local staging/commit with elevated filesystem permissions.
+
+### 2026-09-16T22:31:12-04:00 — /root — Review changes reapplied
+- Created interim commit f7cc3e7 (Implement order orchestration before review refinements).
+- Restored every saved reviewed file byte-for-byte, excluding append-only AGENT_LOG.md. All six review changes are again present as uncommitted changes against the new baseline.
+- Next: Run full checks and inspect the focused diff.
+
+### 2026-09-16T22:31:37-04:00 — /root — Commit split complete
+- Outcome: f7cc3e7 captures the pre-review implementation. Review refinements are restored as uncommitted changes; saved content matched byte-for-byte (activity log intentionally append-only).
+- Validation: restored version passed npm run check (lint, typecheck, 60 tests, build) and git diff --check. No push performed.
+
+### 2026-09-16T22:37:17-04:00 — /root — Centralize transition creation
+- Request: Commit current review changes, then centralize transition construction currently split between orchestration and transition service.
+- Inspected current status and service contracts. Next: Commit the existing reviewed state, move outcome/start transition construction into the transition service, update callers and validate.

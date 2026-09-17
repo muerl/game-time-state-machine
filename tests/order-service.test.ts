@@ -10,6 +10,7 @@ import { orders, orderCommands, orderTransitions } from '../src/db/schema.js';
 import { createOrderService } from '../src/orders/create-order-service.js';
 import { createStubOrderCompletion } from '../src/orders/stub-order-completion.js';
 import type { OrderCompletion } from '../src/orders/order-completion.js';
+import { InvalidTransitionError } from '../src/orders/invalid-transition-error.js';
 import { OrderServiceError } from '../src/orders/order-service.js';
 import type { OrderService } from '../src/orders/order-service.js';
 import type { OrderStore } from '../src/orders/order-store.js';
@@ -174,7 +175,7 @@ test('completion/cancellation race has one claimant and no duplicate side effect
 });
 
 for (const throws of [false, true]) {
-  test(`unconfirmed authorization ${throws ? 'exception' : 'result'} stays pending with sanitized history`, async () => {
+  test(`unconfirmed authorization ${throws ? 'exception' : 'result'} requires attention with sanitized history`, async () => {
     let calls = 0;
     const service = setup({ payments: { ...createStubPaymentGateway(), authorize: async () => {
       calls++;
@@ -183,7 +184,7 @@ for (const throws of [false, true]) {
     } } });
     const orderId = await initialized(service);
     const result = await service.authorizePayment({ orderId, requestId: 'authorize-1' });
-    assert.equal(result.state, 'payment_authorizing');
+    assert.equal(result.state, 'needs_attention');
     assert.equal(result.history.at(-1)?.event, 'payment_authorization_unconfirmed');
     assert.equal(JSON.stringify(result).includes('private-provider'), false);
     await service.authorizePayment({ orderId, requestId: 'authorize-1' });
@@ -198,8 +199,14 @@ for (const throws of [false, true]) {
     });
     const orderId = await authorized(service);
     const result = await service.completeOrder({ orderId, requestId: 'complete-1' });
-    assert.equal(result.state, 'completing');
+    assert.equal(result.state, 'needs_attention');
     assert.equal(result.history.at(-1)?.failure?.code, 'COMPLETION_UNCONFIRMED');
+    assert.equal(result.history.at(-1)?.recoveryFailure, null);
+    const stored = (await db.select().from(orders))[0]!;
+    assert.equal(stored.voidIdempotencyKey, null);
+    assert.ok(stored.authorizationIdempotencyKey);
+    assert.deepEqual(await service.completeOrder({ orderId, requestId: 'complete-1' }), result);
+    await assert.rejects(service.cancelOrder({ orderId, requestId: 'cancel-1' }), errorCode('INVALID_TRANSITION'));
     assert.equal(voids, 0);
   });
 }
@@ -325,5 +332,36 @@ test('history-write failure rolls back the claimed state, payment key and comman
     assert.equal(calls, 0);
   } finally {
     await client.exec('ALTER TABLE order_transitions DROP CONSTRAINT test_reject_claim_history');
+  }
+});
+
+
+test('invalid transitions identify the requested operation/outcome and current state through HTTP', async () => {
+  const service = setup();
+  const orderId = await initialized(service);
+  const app = createOrderApi(service);
+  for (const [operation, path, currentState, desiredState] of [
+    ['completeOrder', 'complete', 'initialized', 'complete'],
+    ['authorizePayment', 'authorize-payment', 'cancelled', 'payment_authorized'],
+    ['cancelOrder', 'cancel', 'cancelled', 'cancelled'],
+  ] as const) {
+    if (currentState === 'cancelled' && (await service.get(orderId))!.state === 'initialized') {
+      await service.cancelOrder({ orderId, requestId: 'cancel-1' });
+    }
+    await assert.rejects(service[operation]({ orderId, requestId: 'invalid' }), error => {
+      assert.ok(error instanceof InvalidTransitionError);
+      assert.equal(error.operation, operation);
+      assert.equal(error.currentState, currentState);
+      assert.equal(error.desiredState, desiredState);
+      return true;
+    });
+    const response = await app.request(`/orders/${orderId}/${path}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'invalid' }, body: '{}',
+    });
+    assert.equal(response.status, 409);
+    assert.deepEqual(await response.json(), { error: {
+      code: 'INVALID_TRANSITION', operation, currentState, desiredState,
+      message: `Cannot ${operation} from ${currentState}; requested outcome is ${desiredState}.`,
+    } });
   }
 });

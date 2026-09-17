@@ -48,7 +48,7 @@ CREATE TABLE "orders" (
 	CONSTRAINT "orders_authorization_key_nonblank" CHECK ("orders"."authorization_idempotency_key" is null or "orders"."authorization_idempotency_key" ~ '[^[:space:]]'),
 	CONSTRAINT "orders_void_key_nonblank" CHECK ("orders"."void_idempotency_key" is null or "orders"."void_idempotency_key" ~ '[^[:space:]]'),
 	CONSTRAINT "orders_authorization_key_required" CHECK ("orders"."state" in ('initialized', 'cancelled') or "orders"."authorization_idempotency_key" is not null),
-	CONSTRAINT "orders_void_key_required" CHECK ("orders"."state" not in ('payment_voiding', 'needs_attention') or "orders"."void_idempotency_key" is not null),
+	CONSTRAINT "orders_void_key_required" CHECK ("orders"."state" <> 'payment_voiding' or "orders"."void_idempotency_key" is not null),
 	CONSTRAINT "orders_cancelled_payment_shape" CHECK ("orders"."state" <> 'cancelled' or (
     ("orders"."authorization_idempotency_key" is null and "orders"."void_idempotency_key" is null and "orders"."payment_authorization_id" is null)
     or ("orders"."authorization_idempotency_key" is not null and "orders"."void_idempotency_key" is not null and "orders"."payment_authorization_id" is not null)

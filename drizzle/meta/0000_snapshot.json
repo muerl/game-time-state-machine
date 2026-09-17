@@ -1,5 +1,5 @@
 {
-  "id": "c7806ceb-7967-405f-8b16-c0db27998ee1",
+  "id": "b4ef38bb-bc7d-44e8-a8ec-80c1c0cdae67",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -414,7 +414,7 @@
         },
         "orders_void_key_required": {
           "name": "orders_void_key_required",
-          "value": "\"orders\".\"state\" not in ('payment_voiding', 'needs_attention') or \"orders\".\"void_idempotency_key\" is not null"
+          "value": "\"orders\".\"state\" <> 'payment_voiding' or \"orders\".\"void_idempotency_key\" is not null"
         },
         "orders_cancelled_payment_shape": {
           "name": "orders_cancelled_payment_shape",

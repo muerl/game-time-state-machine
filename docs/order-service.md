@@ -1,6 +1,6 @@
 # Order service
 
-`createOrderService` implements the `OrderService` interface with injected `OrderStore`, `PaymentGateway`, and `OrderCompletion` dependencies. HTTP handlers remain transport-only. The configured application uses PostgreSQL through Drizzle and explicitly simulated payment/completion adapters.
+`createOrderService` implements the `OrderService` interface with injected `OrderStore`, `PaymentGateway`, and `OrderCompletion` dependencies. `createOrderTransitionService` owns transactional claim/replay handling and outcome version checks; the order service coordinates external operations and recovery. HTTP handlers remain transport-only. The configured application uses PostgreSQL through Drizzle and explicitly simulated payment/completion adapters.
 
 ## Operations
 
@@ -14,7 +14,7 @@
 
 A confirmed completion failure claims payment_voiding and records the completion failure before calling the payment gateway. A successful void produces cancelled; an error or thrown exception produces needs_attention, retaining both completion and void failure details. An explicit cancellation has no completion failure to record.
 
-Unconfirmed authorization stays payment_authorizing with a payment_authorization_unconfirmed history entry. Unconfirmed completion stays completing with a completion_unconfirmed entry; it must not trigger a void. These self-transitions increment the version so history and current state stay consistent. The service writes fixed, sanitized failure codes/messages rather than persisting arbitrary adapter errors.
+Unconfirmed authorization (including a thrown gateway exception) moves to needs_attention with a payment_authorization_unconfirmed history entry. Unconfirmed completion likewise moves to needs_attention with a completion_unconfirmed entry; it must not trigger a void. The original authorization idempotency key is preserved. No void key is required when no void was attempted. These transitions increment the version so history and current state stay consistent. The service writes fixed, sanitized failure codes/messages rather than persisting arbitrary adapter errors.
 
 Fresh commands in pending or terminal states are rejected. Exact accepted-command replays are resolved first and return the **current** consistent order snapshot, which may include later operations. They do not return a frozen copy of the first HTTP response and never resume work or repeat an external call.
 

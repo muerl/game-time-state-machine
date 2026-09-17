@@ -67,7 +67,9 @@ Creation includes `Location: /orders/:id`. Authorization, completion, and cancel
 
 Settled outcomes, including `rejected`, `cancelled`, and `needs_attention`, use `200` with the actual state and failure history. HTTP success means the command outcome was returned, not that checkout succeeded. Clients must inspect state.
 
-Errors use `{ "error": { "code": "...", "message": "..." } }`:
+Errors use `{ "error": { "code": "...", "message": "..." } }`. `INVALID_TRANSITION` also includes `operation`, `currentState`, and `desiredState`, describing the requested business outcome. Unconfirmed authorization/completion outcomes are recorded as `needs_attention`; they never imply rejection, successful cancellation, or an automatic void.
+
+Error statuses:
 
 | Status | Meaning |
 | --- | --- |

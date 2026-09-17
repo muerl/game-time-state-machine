@@ -1,4 +1,5 @@
 import type { Context } from 'hono';
+import { InvalidTransitionError } from '../orders/invalid-transition-error.js';
 import { OrderServiceError } from '../orders/order-service.js';
 import type { OrderServiceErrorCode } from '../orders/order-types.js';
 
@@ -19,6 +20,12 @@ export class RequestError extends Error {
 export function handleApiError(error: Error, context: Context) {
   if (error instanceof RequestError) {
     return context.json({ error: { code: error.code, message: error.message } }, error.status);
+  }
+  if (error instanceof InvalidTransitionError) {
+    return context.json({ error: {
+      code: error.code, message: error.message, operation: error.operation,
+      currentState: error.currentState, desiredState: error.desiredState,
+    } }, 409);
   }
   if (error instanceof OrderServiceError) {
     const mapped = serviceErrors[error.code];

@@ -4,16 +4,16 @@ import type { OrderSnapshot } from './order-types.js';
 export type OrderOperation = 'authorizePayment' | 'completeOrder' | 'cancelOrder';
 export type StoredOrder = Readonly<{
   snapshot: OrderSnapshot;
-  authorizationKey: string | null;
+  authorizationIdempotencyKey: string | null;
   authorizationId: string | null;
-  voidKey: string | null;
+  voidIdempotencyKey: string | null;
 }>;
 export type Transition = Readonly<{
   state: OrderState;
   event: OrderEvent;
-  authorizationKey?: string;
+  authorizationIdempotencyKey?: string;
   authorizationId?: string;
-  voidKey?: string;
+  voidIdempotencyKey?: string;
   failure?: FailureDetails;
   recoveryFailure?: FailureDetails;
 }>;

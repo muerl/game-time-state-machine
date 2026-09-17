@@ -28,7 +28,7 @@ export const orders = pgTable('orders', {
   check('orders_authorization_key_nonblank', sql`${table.authorizationIdempotencyKey} is null or ${table.authorizationIdempotencyKey} ~ '[^[:space:]]'`),
   check('orders_void_key_nonblank', sql`${table.voidIdempotencyKey} is null or ${table.voidIdempotencyKey} ~ '[^[:space:]]'`),
   check('orders_authorization_key_required', sql`${table.state} in ('initialized', 'cancelled') or ${table.authorizationIdempotencyKey} is not null`),
-  check('orders_void_key_required', sql`${table.state} not in ('payment_voiding', 'needs_attention') or ${table.voidIdempotencyKey} is not null`),
+  check('orders_void_key_required', sql`${table.state} <> 'payment_voiding' or ${table.voidIdempotencyKey} is not null`),
   check('orders_cancelled_payment_shape', sql`${table.state} <> 'cancelled' or (
     (${table.authorizationIdempotencyKey} is null and ${table.voidIdempotencyKey} is null and ${table.paymentAuthorizationId} is null)
     or (${table.authorizationIdempotencyKey} is not null and ${table.voidIdempotencyKey} is not null and ${table.paymentAuthorizationId} is not null)
