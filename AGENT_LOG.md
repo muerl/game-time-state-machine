@@ -297,3 +297,64 @@ Shared running record of actions, outcomes, and concise decision summaries for e
 ### 2026-09-16T22:37:17-04:00 — /root — Centralize transition creation
 - Request: Commit current review changes, then centralize transition construction currently split between orchestration and transition service.
 - Inspected current status and service contracts. Next: Commit the existing reviewed state, move outcome/start transition construction into the transition service, update callers and validate.
+
+### 2026-09-16T22:39:09-04:00 — /root — Transition construction centralized
+- Created requested prerequisite commit eab2e52 (Refine order transition coordination and attention outcomes).
+- Moved authorization/completion/void transition creation, sanitized failure mapping and void key generation into createOrderTransitionService. Exposed typed outcome methods; generic finish is private. Order orchestration now only calls dependencies and follows the completion recovery action.
+- Void recovery reads the completion failure already persisted in void-start history, preserving explicit cancellation behavior without synthetic failure data. Updated service design docs.
+- Validation: npm run check passed lint, typecheck, all 60 existing regression tests and build; git diff --check passed. Confirmed no Transition objects/state-event mapping remain in create-order-service.ts.
+- Outcome: New centralization changes left uncommitted for focused review against eab2e52.
+
+### 2026-09-16T22:44:04-04:00 — /root — Rename failure constant
+- Request: Use SCREAMING_SNAKE_CASE for the module-level failures constant.
+- Action: Inspect and rename failures to FAILURES in the transition service; validate with required checks.
+
+### 2026-09-16T22:44:18-04:00 — /root — Constant rename complete
+- Renamed failures to FAILURES and updated all references in create-order-transition-service.ts. No behavior changes.
+- Validation: npm run check passed lint, typecheck, all 60 tests and build. Changes remain uncommitted.
+
+### 2026-09-16T22:47:21-04:00 — /root — Commit code only
+- Request: Commit current work while leaving .md changes uncommitted.
+- Next: Inspect staging and changes, stage only non-Markdown code files, commit, verify Markdown remains unstaged. Recent npm run check passed all 60 tests and other checks.
+
+### 2026-09-16T22:47:49-04:00 — /root — Code-only commit completed
+- Committed four TypeScript files as e62e585 (Centralize order transition construction and outcome handling). Verified staged file list excluded Markdown and staged diff whitespace checks passed.
+- Remaining worktree changes are only AGENT_LOG.md, README.md, docs/order-service.md and untracked HUMAN.md. All Markdown remains uncommitted. No push performed.
+
+### 2026-09-16T22:52:18-04:00 — /root — Curl endpoint guide
+- Request: Generate documentation with curl examples for the endpoints.
+- Next: Inspect current API contracts and local setup, write a dedicated runnable guide, and validate examples against the real API with ephemeral storage.
+
+### 2026-09-16T22:55:29-04:00 — /root — Curl guide delivered
+- Inspected HTTP routes, request parsing, errors, composition and REST docs. Added docs/curl-examples.md with local setup, generated IDs, every endpoint, both cancellation paths, replay behavior, expected status/state/version, and error examples; linked it from docs/rest-api.md.
+- Initial isolated-server validation hit sandbox EPERM binding localhost; retried with approved elevated execution. Ran 20 actual curl requests extracted directly from the guide against the real API/service/store with ephemeral PGlite. Verified expected statuses, lifecycle states, error codes and creation 201. Server/database closed afterward; configured database untouched.
+- git diff --check passed. Full npm run check passed lint, typecheck, all 60 tests and build. Documentation changes remain uncommitted; existing Markdown work preserved.
+
+### 2026-09-16T22:59:52-04:00 — /root — Start local database and server
+- Request: Start SQL in Docker, then the API server.
+- Next: Inspect Compose/local configuration, start Docker/PostgreSQL, apply local migrations and launch/check server.
+
+### 2026-09-16T23:01:27-04:00 — /root — Local services running
+- Initial Docker access was sandbox-denied; elevated access confirmed Docker Desktop available. Created ignored .env.local from local example (no existing configuration overwritten).
+- docker compose up -d --wait postgres pulled postgres:17-alpine and created a healthy gametime-postgres-1 container with local persistent volume, bound to 127.0.0.1:5433.
+- Applied initial migration explicitly to local Docker database; db:check confirmed all three tables. Started npm run dev on 127.0.0.1:3000 (exec session 45392) using local database configuration.
+- Validation: health returned 200 and database-backed lookup returned expected 404 ORDER_NOT_FOUND. Server and container left running. No test orders created.
+
+### 2026-09-16T23:09:43-04:00 — /root — Full assignment gap review
+- Request: Re-read the PDF and assess what remains missing across the complete project.
+- Next: Inspect assignment, implementation, tests and submission documentation; distinguish requirements from optional production improvements.
+
+### 2026-09-16T23:10:16-04:00 — /root — Assignment gap assessment complete
+- Re-extracted full PDF and reviewed README/HUMAN.md, service design, runtime composition, transition implementation, four required scenario tests, curl guide and Git status/remotes.
+- Assessment: Core requested behavior and all four mandatory test paths implemented. Submission gaps are reviewer-facing personal rationale (HUMAN.md currently title/name only), final documentation cleanup/commit, and GitHub delivery (no local remote configured).
+- Recommended finishing work: Easy failure-scenario demonstration and real multi-session PostgreSQL testing. Known runtime limits (manual resolution, reconciliation, dependency timeouts, diagnostic detail) are extensions rather than mandatory take-home features. No deployment/UI/real payment requirement inferred.
+- Validation: Fresh npm run check passed lint, strict typecheck, all 60 tests and build. No application/docs changes made during this review; only activity log appended.
+
+### 2026-09-16T23:20:47-04:00 — /root — Commit Markdown documentation
+- Request: Commit Markdown changes; user will handle GitHub.
+- Actions: Inspect working tree/staging; stage only Markdown files including HUMAN.md and curl guide. No push requested.
+
+### 2026-09-16T23:21:15-04:00 — /root — Markdown commit handoff
+- Staged six Markdown files only: AGENT_LOG.md, HUMAN.md, README.md and three docs files. Preserved the user's expanded HUMAN.md without editorial changes.
+- Validation: staged diff check reported trailing spaces in HUMAN.md (including Markdown hard-break spacing); preserved user content. No code changed, so no test rerun needed.
+- Outcome: Documentation prepared for local commit; GitHub publication remains with the user.

@@ -1,6 +1,6 @@
 # Order service
 
-`createOrderService` implements the `OrderService` interface with injected `OrderStore`, `PaymentGateway`, and `OrderCompletion` dependencies. `createOrderTransitionService` owns transactional claim/replay handling and outcome version checks; the order service coordinates external operations and recovery. HTTP handlers remain transport-only. The configured application uses PostgreSQL through Drizzle and explicitly simulated payment/completion adapters.
+`createOrderService` implements the `OrderService` interface with injected `OrderStore`, `PaymentGateway`, and `OrderCompletion` dependencies. `createOrderTransitionService` centralizes lifecycle transition construction: start transitions, authorization/completion/void outcome mapping, sanitized failures, payment idempotency keys, claim/replay handling, and outcome version checks. Its typed outcome methods keep raw transition objects out of the order service, which coordinates external calls and follows the returned recovery action. Void outcomes retain the failure already persisted in the void-start history. HTTP handlers remain transport-only. The configured application uses PostgreSQL through Drizzle and explicitly simulated payment/completion adapters.
 
 ## Operations
 

@@ -1,6 +1,10 @@
-# Gametime
+# Gametime State Machine
 
 TypeScript infrastructure for an order state machine proof of concept. Storage is ordinary PostgreSQL accessed through Drizzle and `pg`; Neon is the intended hosted provider, but any compatible managed Postgres can be used. A Hono REST API invokes an order service that enforces transitions, persists history, deduplicates commands and performs stage-specific recovery. Payment and ticket completion use injectable simulations; no real payments or tickets are processed.
+
+## Note for reviewers
+
+This file is primarily agenticly generated and and mean for agentic consumption.  For my, Matt Haag's options and thoughts please see HUMAN.md
 
 ## REST API
 

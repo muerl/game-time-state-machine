@@ -1,5 +1,7 @@
 # Order REST API
 
+For a runnable walkthrough with generated order IDs, both cancellation paths, retries, and errors, see [curl examples](curl-examples.md).
+
 The HTTP routes use the implemented `OrderService` with durable PostgreSQL state/history and command deduplication. The default application wires simulated payment and completion adapters. Configure `DATABASE_URL` and apply the initial migration before using order routes; without a database URL they return `503 SERVICE_UNAVAILABLE`. `/health` returns `200` independently of database readiness.
 
 ## Run locally
