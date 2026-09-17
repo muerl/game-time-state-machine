@@ -7,7 +7,8 @@ async function main() {
     await database.db.execute(sql`select 1`);
     await database.db.execute(sql`select id from orders limit 0`);
     await database.db.execute(sql`select id from order_transitions limit 0`);
-    console.log('Database connected; orders and order_transitions tables are available.');
+    await database.db.execute(sql`select id from order_commands limit 0`);
+    console.log('Database connected; orders, order_transitions and order_commands tables are available.');
   } finally {
     await database.close();
   }

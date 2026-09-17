@@ -194,17 +194,23 @@ test('health, unknown routes and unsupported methods return JSON', async () => {
   assert.equal((await app.request(`/orders/${id}`, { method: 'HEAD' })).status, 200);
 });
 
-test('default app is importable without database credentials and explicitly unwired', async () => {
-  assert.equal((await defaultApp.request('/health')).status, 200);
-  for (const response of [
-    await defaultApp.request('/orders', post({})),
-    await defaultApp.request(`/orders/${id}`),
-    await defaultApp.request(`/orders/${id}/authorize-payment`, post({})),
-    await defaultApp.request(`/orders/${id}/complete`, post({})),
-    await defaultApp.request(`/orders/${id}/cancel`, post({})),
-  ]) {
-    assert.equal(response.status, 503);
-    assert.equal((await response.json()).error.code, 'SERVICE_UNAVAILABLE');
+test('default app is importable without database credentials and returns service unavailable', async () => {
+  const databaseUrl = process.env.DATABASE_URL;
+  delete process.env.DATABASE_URL;
+  try {
+    assert.equal((await defaultApp.request('/health')).status, 200);
+    for (const response of [
+      await defaultApp.request('/orders', post({})),
+      await defaultApp.request(`/orders/${id}`),
+      await defaultApp.request(`/orders/${id}/authorize-payment`, post({})),
+      await defaultApp.request(`/orders/${id}/complete`, post({})),
+      await defaultApp.request(`/orders/${id}/cancel`, post({})),
+    ]) {
+      assert.equal(response.status, 503);
+      assert.equal((await response.json()).error.code, 'SERVICE_UNAVAILABLE');
+    }
+  } finally {
+    if (databaseUrl !== undefined) process.env.DATABASE_URL = databaseUrl;
   }
 });
 

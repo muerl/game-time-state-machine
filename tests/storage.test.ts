@@ -11,7 +11,7 @@ import type { FailureDetails, OrderEvent, OrderState } from '../src/db/schema.js
 const client = new PGlite();
 const db = drizzle(client);
 before(async () => { await migrate(db, { migrationsFolder: './drizzle' }); });
-beforeEach(async () => { await client.exec('TRUNCATE order_transitions, orders'); });
+beforeEach(async () => { await client.exec('TRUNCATE order_commands, order_transitions, orders'); });
 after(async () => { await client.close(); });
 
 function rejectsConstraint(name: string, code = '23514') {

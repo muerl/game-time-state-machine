@@ -11,7 +11,7 @@ export class OrderServiceError extends Error {
 }
 
 /**
- * HTTP-independent application boundary. Implement orchestration separately.
+ * HTTP-independent application boundary. Implemented by createOrderService.
  * The implementation must durably deduplicate request IDs (creation globally,
  * authorization/completion/cancellation in a shared per-order namespace), reject a different
  * operation or changed payload under an existing key, and

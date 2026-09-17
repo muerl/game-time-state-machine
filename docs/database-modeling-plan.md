@@ -1,6 +1,6 @@
 # Phase 1: Order lifecycle database model
 
-Status: Implemented for the database-modeling phase. `npm run check` passes lint, type-checks, storage and payment tests, and the build. Drizzle reports no schema drift. No persistent or hosted database was modified; transition-service behavior and concurrent network-session validation remain deferred as specified below.
+Status: Historical plan for the completed database-modeling phase. Subsequent explicit cancellation and orchestration additions are documented in [the current service design](order-service.md); that document and the schema supersede this plan where they differ. `npm run check` passes lint, type-checks, storage and payment tests, and the build. Drizzle reports no schema drift. No persistent or hosted database was modified; transition-service behavior and concurrent network-session validation remain deferred as specified below.
 
 ## Summary
 

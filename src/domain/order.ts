@@ -7,6 +7,7 @@ export const orderEvents = [
   'order_initialized', 'payment_authorization_started', 'payment_authorized', 'payment_declined',
   'completion_started', 'payment_void_started',
   'order_completed', 'payment_voided', 'payment_void_failed', 'order_cancelled',
+  'payment_authorization_unconfirmed', 'completion_unconfirmed',
 ] as const;
 
 export type OrderState = typeof orderStates[number];

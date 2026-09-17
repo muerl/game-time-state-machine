@@ -1,0 +1,61 @@
+# Order service
+
+`createOrderService` implements the `OrderService` interface with injected `OrderStore`, `PaymentGateway`, and `OrderCompletion` dependencies. HTTP handlers remain transport-only. The configured application uses PostgreSQL through Drizzle and explicitly simulated payment/completion adapters.
+
+## Operations
+
+| Operation | Allowed starting state | Processing and outcome |
+| --- | --- | --- |
+| Create | None | Atomically insert an initialized order and its initial history |
+| Authorize payment | initialized | Claim payment_authorizing; authorize; payment_authorized or rejected |
+| Complete order | payment_authorized | Claim completing; complete; complete on success |
+| Cancel order | initialized | Record order_cancelled and become cancelled without payment calls |
+| Cancel order | payment_authorized | Claim payment_voiding; void; cancelled only on confirmation |
+
+A confirmed completion failure claims payment_voiding and records the completion failure before calling the payment gateway. A successful void produces cancelled; an error or thrown exception produces needs_attention, retaining both completion and void failure details. An explicit cancellation has no completion failure to record.
+
+Unconfirmed authorization stays payment_authorizing with a payment_authorization_unconfirmed history entry. Unconfirmed completion stays completing with a completion_unconfirmed entry; it must not trigger a void. These self-transitions increment the version so history and current state stay consistent. The service writes fixed, sanitized failure codes/messages rather than persisting arbitrary adapter errors.
+
+Fresh commands in pending or terminal states are rejected. Exact accepted-command replays are resolved first and return the **current** consistent order snapshot, which may include later operations. They do not return a frozen copy of the first HTTP response and never resume work or repeat an external call.
+
+## Transaction boundaries and concurrency
+
+1. Lock the order row with `SELECT ... FOR UPDATE` in a short transaction.
+2. Look up the client command. If it was accepted earlier, return the current order; a different operation under that key conflicts.
+3. Validate the current state, record the command, and update state/version plus history atomically. Persist authorization/void keys at this point.
+4. Commit, then call the external dependency with the stored key. Completion uses `complete:<order-id>`: one logical completion per order.
+5. Lock again and verify the original claim state/version before recording the outcome and its history atomically.
+
+Concurrent commands serialize only during database work. A slow gateway does not hold a transaction open. Once an operation is claimed, a competing fresh command sees the pending state and cannot make another call. Conditional updates and outcome version checks protect against stale writes. A failed transaction rolls back its command, state and history changes together.
+
+Reads hold a shared order-row lock while reading history to return a consistent snapshot. Creation uses a unique creation request ID and `INSERT ... ON CONFLICT DO NOTHING`; retries select the existing order. Creation keys are global. Other accepted command keys share a per-order namespace across authorization, completion and cancellation. Rejected commands are not recorded. Provider keys, client command keys and transition IDs remain separate.
+
+## Persistence
+
+The greenfield initial migration contains three tables:
+
+- `orders`: current state/version, unique creation request ID, persisted payment reference/keys and timestamps.
+- `order_transitions`: ordered, timestamped history and sanitized failure details.
+- `order_commands`: accepted per-order command identities and operation names, unique by order ID and request ID.
+
+`creation_request_id` is nullable for storage-level fixtures; service-created orders always supply it. The service owns the state graph and history writes. Database checks protect basic shapes and keys; direct SQL access can bypass the application graph. There are no upgrade migrations or automatic startup migrations.
+
+## Crash and uncertainty boundaries
+
+If a process stops after a claim, or an external operation succeeds but its outcome cannot be persisted, the durable order remains pending. A retry returns that pending snapshot without starting another attempt. This favors avoiding duplicate side effects over automatic progress.
+
+There is no recovery worker, provider reconciliation endpoint, lease expiry, or manual-resolution API in this prototype. Pending orders and needs_attention outcomes require a future reconciliation path using the original keys. The schema preserves keys and failure context for that work. No background execution is implied by HTTP 202. External adapters must honor idempotency and validate provider responses.
+
+## Verification
+
+`tests/order-service.test.ts` exercises the real Drizzle adapter against ephemeral PGlite: all four requested outcomes, explicit cancellation, slow dependency interleavings, replay across service instances, cross-operation key conflicts, sanitized uncertainty, transaction rollback, outcome-write failure, and a full HTTP-to-database flow.
+
+PGlite serializes transactions in one embedded database. The tests demonstrate claim behavior and prevent calls while an operation is pending; they do not replace multi-session PostgreSQL stress tests. Docker was unavailable during this implementation, so network-driver and real PostgreSQL concurrency validation remain outstanding.
+
+## Next improvements
+
+- A reconciliation worker with provider outcome lookup, stable keys and explicit ownership/fencing.
+- Real payment and ticket-completion adapters with timeouts, cancellation support and validated provider responses.
+- Multi-session PostgreSQL race tests and fault injection around commit uncertainty.
+- Authentication/authorization, operational metrics, audit tooling and manual resolution.
+- Vercel pool lifecycle integration and deployment configuration when preparing a hosted deployment.

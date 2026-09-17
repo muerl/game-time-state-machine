@@ -1,6 +1,6 @@
 # Order REST API
 
-This phase implements HTTP routes and an injectable `OrderService` interface only. State-machine execution, persistence, payment calls, durable command deduplication, and recovery are not wired in. The default application returns `503 SERVICE_UNAVAILABLE` for valid order requests; `/health` returns `200`. Tests inject test-only service implementations.
+The HTTP routes use the implemented `OrderService` with durable PostgreSQL state/history and command deduplication. The default application wires simulated payment and completion adapters. Configure `DATABASE_URL` and apply the initial migration before using order routes; without a database URL they return `503 SERVICE_UNAVAILABLE`. `/health` returns `200` independently of database readiness.
 
 ## Run locally
 
@@ -11,7 +11,7 @@ npm run build
 npm start
 ```
 
-The server listens on `http://127.0.0.1:3000`. Set `PORT` and optionally `HOST` to change it. No database credentials are needed for this HTTP-only slice. `/health` is a liveness check, not a database/service readiness check. Authentication is not implemented in this prototype.
+The server listens on `http://127.0.0.1:3000`. Set `PORT` and optionally `HOST` to change it. Order routes require a configured, migrated database. Payment and completion are simulations; no real payments or tickets are processed. `/health` is a liveness check, not a database/service readiness check. Authentication is not implemented in this prototype.
 
 ## Routes
 
@@ -55,7 +55,7 @@ curl -i -X POST http://127.0.0.1:3000/orders/11111111-1111-4111-8111-11111111111
 curl -i http://127.0.0.1:3000/orders/11111111-1111-4111-8111-111111111111
 ```
 
-Order examples currently return `503` until a service implementation is injected.
+With the configured database and default stubs, authorization and completion succeed. The cancellation example is an alternative to completion; it cannot cancel an already complete order.
 
 ## Responses
 
@@ -77,16 +77,16 @@ Errors use `{ "error": { "code": "...", "message": "..." } }`:
 | 409 | Concurrent operation conflict, invalid transition, or conflicting key reuse |
 | 413 | Body exceeds 16 KiB |
 | 415 | Unsupported content type |
-| 503 | Order service unavailable or not wired in |
+| 503 | Order service unavailable (for example, missing database configuration) |
 | 500 | Unexpected failure; internal details excluded |
 
-## Service wiring and next phase
+## Service wiring
 
-Implement the `OrderService` interface from `src/orders/order-service.ts` and pass it to `createOrderApi(service)` in `src/http/app.ts`. Replace the explicit unavailable service in `src/index.ts` when orchestration is ready. HTTP handlers do not access database/payment adapters directly.
+`src/orders/create-order-service.ts` implements `OrderService`. `configured-order-service.ts` composes it with the Drizzle store and prototype stubs, lazily on the first configured order request. HTTP handlers do not access database/payment adapters directly. Types live separately in `src/orders/order-types.ts`.
 
-The HTTP layer forwards `Idempotency-Key` as `requestId`; it does not deduplicate. The service must durably deduplicate creation commands globally and authorization/completion/cancellation commands in a shared per-order namespace, reject a different operation or changed payload under an existing key, and resolve exact replays before checking whether the operation is allowed. Client command IDs are separate from provider keys and individual history entry IDs. Clients retry the same endpoint using the same key and identical body. Reusing an authorization command key for completion or cancellation must produce `IDEMPOTENCY_CONFLICT`; use a new command key for each distinct operation.
+The HTTP layer forwards `Idempotency-Key` as `requestId`; it does not deduplicate. The service durably deduplicates creation commands globally and authorization/completion/cancellation commands in a shared per-order namespace, rejects a different operation under an existing accepted key, and resolves exact replays before checking whether the operation is allowed. Replays return the current order snapshot, not a frozen original response. Rejected commands do not reserve a key. Client command IDs are separate from provider keys and individual history entry IDs. Clients retry the same endpoint using the same key and identical body. Reusing an authorization command key for completion or cancellation must produce `IDEMPOTENCY_CONFLICT`; use a new command key for each distinct operation.
 
-The service must return consistent state/history snapshots, read state/version internally and perform conditional claims before external calls, and map expected errors to `OrderServiceError`. Those are future implementation requirements, not behavior already implemented here.
+The service returns consistent state/history snapshots, reads state/version internally, claims operations before external calls, and maps expected errors to `OrderServiceError`. See [the service design](order-service.md) for transaction boundaries and pending-order recovery limitations.
 
 The Hono default export in `src/index.ts` follows [Vercel's native Hono convention](https://vercel.com/docs/frameworks/backend/hono). The local Node adapter runs separately in `src/dev-server.ts`. No deployment or hosted resources were created.
 

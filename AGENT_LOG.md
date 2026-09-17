@@ -237,3 +237,50 @@ Shared running record of actions, outcomes, and concise decision summaries for e
 - Service contract now owns reads, atomic state/version claims and concurrent conflict resolution; renamed public VERSION_CONFLICT to OPERATION_CONFLICT with a business-operation message. Retained database versions and response history versions. Updated README/API examples and contract.
 - Validation: npm run check passed lint, strict typecheck, all 37 tests and build; git diff --check passed. Remaining expectedVersion references are intentional rejection/removal tests.
 - Limitation: Internal orchestration is still a documented future service responsibility, not implemented in this HTTP slice.
+
+### 2026-09-15T23:13:29-04:00 — /root — Implement order orchestration
+- Request: Build the meat of the order state machine after storage, payment interface and REST contracts.
+- Next: Inspect prompt, plans, adapters and tests; implement durable service orchestration and validate.
+
+### 2026-09-15T23:17:26-04:00 — /root — Orchestration and durable store implementation
+- Read backend/storage guidance and current adapters/schema/API/plan. Extracted prompt with bundled pypdf after system pdftotext and Python pypdf were unavailable. Prompt used as lifecycle guidance, not authorization to publish a repo.
+- Added typed OrderStore boundary and Drizzle adapter with short row-locked transactions, consistent reads, atomic history writes, creation-key uniqueness and durable per-order command identities.
+- Added injectable completion boundary/stub and order service: explicit transitions, replay before validation, authorization declines, successful completion, cancellation, completion-failure void recovery, sanitized failure history, unknown outcomes retained pending, void errors surfaced needs_attention. No external calls inside transactions.
+- Added command table and uncertainty history events; baseline regeneration and tests next.
+
+### 2026-09-15T23:25:26-04:00 — /root — Integrated service validation and review
+- Wired lazy configured service into Hono with real Drizzle persistence and explicit successful payment/completion stubs. Split new store/completion types from interface files to preserve project conventions.
+- First wired typecheck found a Drizzle full-schema generic mismatch; generalized the store factory over its schema type, then full checks passed. Regenerated greenfield baseline SQL/snapshot in a temporary output directory and verified npm run db:generate reports no drift.
+- Added 20 service integration tests: all required outcomes, cancellation, slow authorization/completion/void interleavings, durable command replay across instances, creation deduplication, key conflicts, invalid transitions, sanitized uncertainty, claim rollback, outcome persistence failure, and HTTP-to-database flow. Full check passed 57 tests, lint, typecheck and build.
+- Docker CLI exists, but docker info failed because the Docker daemon socket is absent; multi-session native PostgreSQL testing cannot run in the current environment. No hosted resources or persistent database modified.
+- Updated README/API docs, marked original modeling plan historical, added detailed service design/recovery limits, and extended db:check to inspect order_commands. Final review next.
+
+### 2026-09-15T23:25:55-04:00 — /root — Order service delivered
+- Final review added stale-outcome fencing and history-insert rollback tests; both pass. Confirmed new interface types remain separate, configured app uses simulated adapters, and documentation describes current-snapshot replay semantics and reconciliation limits.
+- Validation: npm run check passed ESLint, strict typecheck, all 59 tests, and build. npm run db:generate reported no schema drift. git diff --check passed.
+- Outcome: End-to-end REST-to-service-to-PostgreSQL orchestration implemented with durable command deduplication, state/history atomicity, payment authorization, completion, explicit cancellation and stage-dependent void recovery. Greenfield baseline regenerated; no migration applied to persistent or hosted databases.
+- Remaining boundaries: Payment and completion are simulations; crash/unknown-outcome reconciliation and manual-resolution APIs are not implemented. Docker daemon is unavailable, so real multi-session PostgreSQL/network-driver tests remain unverified; PGlite integration tests passed.
+
+### 2026-09-16T22:25:10-04:00 — /root — Apply orchestration review
+- Request: Add creation replay comment; explicit idempotency key names; contextual invalid transition errors; extract claim/finish service; surface unhandled authorization/completion outcomes as needs_attention.
+- Next: Inspect current implementation and constraints, refactor, update regression tests/docs and validate.
+
+### 2026-09-16T22:27:15-04:00 — /root — Review changes completed
+- Added concise creation idempotency recovery comment. Renamed authorizationKey/voidKey throughout service/store types and adapter to authorizationIdempotencyKey/voidIdempotencyKey.
+- Extracted transactional claim, replay resolution, start validation and finish/version checks into createOrderTransitionService with separate interface/types. Added InvalidTransitionError with operation/currentState/desiredState and explicit HTTP 409 projection.
+- Authorization and completion error/unknown results and adapter exceptions now record needs_attention with sanitized stage failure, preserving authorization keys and avoiding automatic void. Relaxed void-key requirement for needs_attention because no void may have been attempted; regenerated single greenfield baseline SQL/snapshot. Crash/outcome-write failure still can leave pending state.
+- Updated integration assertions and added actual service-to-HTTP invalid-transition detail coverage. Updated README and service/API docs.
+- Validation: npm run check passed lint, typecheck, all 60 tests and build. npm run db:generate reported no drift; git diff --check passed; no obsolete key names remain in src/tests. No persistent database migration applied.
+
+### 2026-09-16T22:29:11-04:00 — /root — Split baseline from review changes
+- Request: Temporarily undo the latest review response, create an interim commit, and reapply the review changes for a focused diff.
+- Inspected git status, current HEAD and diffs; no staged changes. Backed up every changed/untracked project file to /var/folders/z2/98wykv_n0vdfgjrdwz3y977m0000gp/T/gametime-review-split-ujbsvd_g.
+- Next: Reverse only the six-comment response, validate/commit the pre-review service, restore reviewed content byte-for-byte, and verify. Activity log remains append-only throughout.
+
+### 2026-09-16T22:30:33-04:00 — /root — Pre-review baseline restored
+- Reversed only the latest review changes, including extracting methods back into the original service, original internal key aliases, original pending-outcome behavior, schema snapshot and matching docs/tests. Kept all earlier orchestration work.
+- Validation: npm run check passed lint, typecheck, all 59 pre-review tests and build; git diff --check passed.
+- Next: Commit baseline, then restore saved reviewed content. Historical log entries intentionally retained.
+
+### 2026-09-16T22:30:46-04:00 — /root — Git sandbox retry
+- Initial staging failed: sandbox denied creation of .git/index.lock. No commit occurred. Retrying the authorized local staging/commit with elevated filesystem permissions.
