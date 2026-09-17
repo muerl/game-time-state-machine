@@ -8,8 +8,7 @@ Use Node.js 24, npm, curl, and a configured PostgreSQL database. For local Postg
 
 ```sh
 npm ci
-# Only if .env.local does not already exist:
-cp -n .env.example .env.local
+if [ ! -f .env.local ]; then cp .env.example .env.local; fi
 npm run db:up
 npm run db:migrate
 npm run dev
@@ -17,7 +16,7 @@ npm run dev
 
 If using an existing compatible database, set its `DATABASE_URL` in `.env.local` and skip `db:up`. Migrations are explicit; starting the API does not apply them.
 
-In a second terminal, initialize the example variables:
+These shell examples target macOS or Linux with a POSIX-compatible shell (such as bash or zsh). In a second terminal, initialize the example variables:
 
 ```sh
 BASE_URL='http://127.0.0.1:3000'
@@ -259,6 +258,8 @@ All order responses use `{"order": ...}`. Inspect the state even when HTTP retur
 | `payment_authorizing`, `completing`, `payment_voiding` | An operation is pending |
 
 An operation response with a pending state uses `202 Accepted` and `Location: /orders/<id>`. Read its current status with `GET /orders/:id`; do not create another command key to try to restart it. GET does not initiate work, and a pending state does not imply a background worker is running. No `Retry-After` interval is specified.
+
+A `needs_attention` state does not trigger an alert. You can inspect history for a known order using the GET example above, but there is no endpoint to list attention cases or resolve them. Operational tooling for that workflow remains future work.
 
 The default stubs complete immediately and successfully. There is **no HTTP body field or query parameter to force a decline, slow response, or failure**. Those scenarios are exercised by injected adapters in `tests/order-service.test.ts`. Missing `DATABASE_URL` produces `503 SERVICE_UNAVAILABLE`; a database connection/query failure is currently a sanitized `500 INTERNAL_ERROR`.
 

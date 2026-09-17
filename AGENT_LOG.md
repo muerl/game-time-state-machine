@@ -358,3 +358,87 @@ Shared running record of actions, outcomes, and concise decision summaries for e
 - Staged six Markdown files only: AGENT_LOG.md, HUMAN.md, README.md and three docs files. Preserved the user's expanded HUMAN.md without editorial changes.
 - Validation: staged diff check reported trailing spaces in HUMAN.md (including Markdown hard-break spacing); preserved user content. No code changed, so no test rerun needed.
 - Outcome: Documentation prepared for local commit; GitHub publication remains with the user.
+
+### 2026-09-16T23:30:10-04:00 — /root — Review all project documentation
+- Request: Review all documentation, including updated human-written rationale.
+- Next: Read project-owned docs, compare with current implementation/setup and report actionable inconsistencies and clarity issues without rewriting the user's prose.
+
+### 2026-09-16T23:30:39-04:00 — /root — Documentation review findings
+- Reviewed README, HUMAN, REST contract, curl guide, service design, historical modeling plan, project instructions and activity-log context. Cross-checked transition definitions, runtime setup and node version. Relative Markdown links resolve.
+- Findings: HUMAN overstates private-network security assumptions, asynchronous recovery guarantees and TypeScript limitations; README graph omits attention transitions and reviewer introduction needs polish; REST sample uses a nonexistent placeholder UUID without substitution instruction; verification status is stale after Docker startup. Human prose has substantial spelling/grammar cleanup opportunities.
+- Curl guide aligns with current API; prior 20-request execution validation still applies. Historical plan is explicitly superseded, so its older model should remain historical rather than silently rewritten.
+- Outcome: Review only; no application or documentation content edited. Activity log appended; user edits to HUMAN preserved.
+
+### 2026-09-16T23:34:56-04:00 — /root — Documentation update
+- Request: Update project documentation except HUMAN.md.
+- Intent: Address documentation review findings, cross-check implementation, and preserve human-authored documentation.
+- Actions: Inspected working-tree status and README, REST, service, and historical modeling documentation; recorded HUMAN.md checksum for preservation verification.
+
+### 2026-09-16T23:36:04-04:00 — /root — Documentation corrections and validation
+- Cross-checked transition construction, domain states/events, HTTP responses, npm scripts, curl guide, and recorded Docker verification.
+- Updated README navigation, lifecycle graph and failure details; removed placeholder REST walkthrough in favor of runnable examples; corrected service verification scope and described deferred durable recovery; clarified historical plan status and aligned safe environment-file setup in the curl guide.
+- Preserved HUMAN.md byte-for-byte (checksum verified). Project instructions and historical activity entries were not rewritten.
+- Validation: Relative documentation links resolve; shell examples pass bash syntax checks. Full npm run check started. No application code or database changes.
+
+### 2026-09-16T23:36:14-04:00 — /root — Documentation update complete
+- Updated README and all four project guides; HUMAN.md retains the user’s existing changes without agent edits.
+- Validation: npm run check passed ESLint, strict TypeScript checks, all 60 tests and build. Documentation diff whitespace checks passed; local links and 21 shell blocks validated.
+- Changes remain uncommitted. Full network-backed lifecycle and multi-session concurrency tests remain documented follow-ups.
+
+### 2026-09-16T23:38:39-04:00 — /root — Human documentation spelling corrections
+- Request: Correct the user’s spelling errors; this authorizes editing HUMAN.md after the prior exclusion.
+- Intent: Read HUMAN.md and correct spelling and obvious typos while preserving wording, opinions, and technical claims.
+
+### 2026-09-16T23:39:00-04:00 — /root — Spelling corrections complete
+- Corrected spelling, product-name typography, obvious missing words, and minor punctuation in HUMAN.md. Preserved the author’s opinions and technical claims, including the recovery discussion.
+- Validation: Reviewed the task-specific text diff; no application code changed, so tests were not rerun. Existing Markdown hard-break spacing preserved. Changes remain uncommitted.
+
+### 2026-09-16T23:43:13-04:00 — /root — Second spelling pass
+- Request: Spellcheck again.
+- Action: Re-read current HUMAN.md to identify remaining or newly introduced spelling errors while preserving the author’s meaning.
+
+### 2026-09-16T23:43:24-04:00 — /root — Second spelling pass complete
+- Corrected new final-paragraph typos: duplicated access wording, “the the,” “Devop,” “operation sceantions,” and “ahve.”
+- Re-read the full document; preserved valid spelling variants and the author’s technical claims. Verified the intended replacement. No code changes or test rerun; changes remain uncommitted.
+
+### 2026-09-16T23:44:39-04:00 — /root — Align technical documentation with human rationale
+- Request: Update the rest of the documentation, including README.md, to reflect HUMAN.md’s points.
+- Intent: Align documented tradeoffs and future work around recoverability, transition typing, and operational visibility/access without claiming deferred features exist.
+
+### 2026-09-16T23:45:32-04:00 — /root — Documentation aligned with author priorities
+- Added README rationale, scope, and priorities for durable recovery, stronger transition types, and operational visibility. Expanded service design with alerting/discovery and authorized investigation/resolution without direct SQL access; clarified corresponding REST/curl limitations.
+- Described these as future work, retaining current guarantees and the need for durable delivery and runtime validation. Left HUMAN.md byte-for-byte unchanged and preserved the historical modeling plan.
+- Validation: Local Markdown links resolve; inspected the new prose against existing implementation and author rationale. Documentation-only edits; no code tests rerun. Changes remain uncommitted.
+
+### 2026-09-16T23:48:08-04:00 — /root — Spellcheck updated human rationale
+- Request: Check updated HUMAN.md for spelling errors.
+- Intent: Read current user edits and correct spelling and obvious typos without changing meaning.
+
+### 2026-09-16T23:48:31-04:00 — /root — Updated human rationale spellchecked
+- Corrected spelling and obvious grammatical typos throughout the current HUMAN.md, including newly added security, outbox, and typing paragraphs. Earlier spelling errors had also reappeared in the latest text and were corrected.
+- Preserved the user’s revised technical claims and wording intent, including payment_authorizing and the revised recovery discussion. Reviewed the task-specific diff. No application code changed; tests not rerun. Changes remain uncommitted.
+
+### 2026-09-16T23:50:26-04:00 — /root — Verify documentation alignment
+- Request: Check whether other documentation reflects the latest HUMAN.md changes.
+- Action: Compare current human rationale with README and technical guides, focusing on security scope, durable recovery, transition typing, and operational visibility.
+
+### 2026-09-16T23:50:36-04:00 — /root — Documentation alignment confirmed
+- Compared latest HUMAN.md with README, service design, REST contract, and curl guide. Current documents reflect security outside implemented scope, durable recovery and its cost/complexity, stronger transition types with runtime validation, and missing operational alerting/investigation tools.
+- The revised TypeScript paragraph now agrees with technical guides. Historical modeling plan remains explicitly superseded; activity log remains chronological. No content corrections required and no code changes or tests needed.
+
+### 2026-09-16T23:51:26-04:00 — /root — Remove historical modeling plan
+- Request: Delete the historical plan.
+- Intent: Remove docs/database-modeling-plan.md and active documentation links; preserve chronological activity records.
+
+### 2026-09-16T23:51:38-04:00 — /root — Historical plan removed
+- Deleted docs/database-modeling-plan.md and its README link. Search found no other active Markdown references outside the preserved activity log.
+- Validation: Remaining local README/docs links resolve. Documentation-only change; no tests rerun. Changes remain uncommitted.
+
+### 2026-09-16T23:53:07-04:00 — /root — Commit all pending work
+- Request: Commit everything.
+- Intent: Inspect pending changes, stage all current work, and create a local commit. No push requested.
+
+### 2026-09-16T23:53:22-04:00 — /root — Commit preparation complete
+- Reviewed all seven pending paths: documentation updates, HUMAN.md revisions, activity log, and historical-plan deletion. No application code changes.
+- Validation: README/docs/log whitespace checks passed; prior link and shell-example checks passed. Latest full npm run check passed all 60 tests; no code changed since. Preserved HUMAN.md Markdown spacing.
+- Handoff: Staging all pending work for local commit “docs: align project documentation with design rationale”; will verify clean working tree after commit.

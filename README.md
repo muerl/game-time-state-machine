@@ -4,7 +4,29 @@ TypeScript infrastructure for an order state machine proof of concept. Storage i
 
 ## Note for reviewers
 
-This file is primarily agenticly generated and and mean for agentic consumption.  For my, Matt Haag's options and thoughts please see HUMAN.md
+This README covers setup and implementation. See [HUMAN.md](HUMAN.md) for Matt Haag’s design decisions and reflections.
+
+- [Runnable curl walkthrough](docs/curl-examples.md)
+- [REST API contract](docs/rest-api.md)
+- [Service design, tradeoffs, and remaining work](docs/order-service.md)
+
+## Design choices and scope
+
+The stack reflects the rationale in [HUMAN.md](HUMAN.md): TypeScript for familiarity when evaluating generated code, PostgreSQL for transactional state changes, Drizzle for database access, and Hono for a small HTTP layer. Development proceeded in layers, with AI-assisted implementation and human review of design choices and edge cases. The REST adapter is separate from orchestration, allowing a future application to invoke the service from another transport.
+
+The prototype assumes an internal service context. Authentication and authorization are outside the implemented scope; private networking does not itself provide those controls. Payment and fulfillment remain simulated.
+
+## Tradeoffs and future work
+
+Recoverability is the main tradeoff. External operations run after a durable claim commits, but their results are awaited by the current request. A process failure can leave an order pending even if the external operation succeeded. Replaying the command avoids another side effect but does not resume the work.
+
+The priorities for further work are:
+
+- **Durable recovery:** Dispatch operations and consume their results through durable work delivery or provider webhooks, with retries, correlation, and idempotent processing. Persisting work alongside the claim would close the dispatch gap. This adds deployment complexity, operational responsibility, and cost.
+- **Stronger transition types:** Encode more state/event/outcome relationships in TypeScript so invalid combinations are harder to construct. Runtime checks would still be needed for persisted state and external inputs.
+- **Operational visibility:** Alert on `needs_attention` and operations that remain pending too long, and provide an authorized investigation and resolution interface. Today, history can be fetched for a known order ID, but there is no attention queue, alerting, or resolution API. Operators should be able to investigate without direct database access.
+
+See [the service design](docs/order-service.md) for current guarantees, verification limits, and implementation follow-ups.
 
 ## REST API
 
@@ -30,7 +52,7 @@ Run `npm run lint` for linting alone or `npm run lint:fix` to apply automatic fi
 Start Docker Desktop, then:
 
 ```sh
-cp .env.example .env.local
+if [ ! -f .env.local ]; then cp .env.example .env.local; fi
 npm run db:up
 npm run db:migrate
 npm run db:check
@@ -48,7 +70,7 @@ This is a greenfield model with one initial migration, `drizzle/0000_order_lifec
 
 ## Order lifecycle model
 
-`orders` stores the current state, nonnegative version (initially `0`), nullable payment authorization reference, persisted authorization/void idempotency keys, and creation/update timestamps. Authorization references remain available after completion or cancellation. An index on `(state, updated_at)` supports finding orders requiring attention. There are no customer, ticket, pricing, inventory, or generic metadata fields.
+`orders` stores the unique creation request ID, current state, nonnegative version (initially `0`), nullable payment authorization reference, persisted authorization/void idempotency keys, and creation/update timestamps. Authorization references remain available after completion or cancellation. An index on `(state, updated_at)` supports finding orders requiring attention. There are no customer, ticket, pricing, inventory, or generic metadata fields.
 
 `order_transitions` stores each recorded state change, including initialization, with its order ID, request ID, source/destination states, event, resulting version, timestamp, and optional failure details. Read history ordered by `version`, not timestamps. All timestamps use PostgreSQL `timestamptz`.
 
@@ -60,15 +82,17 @@ This is a greenfield model with one initial migration, `drizzle/0000_order_lifec
 | `initialized` | `payment_authorizing` | `payment_authorization_started` |
 | `payment_authorizing` | `payment_authorized` | `payment_authorized` |
 | `payment_authorizing` | `rejected` | `payment_declined` |
+| `payment_authorizing` | `needs_attention` | `payment_authorization_unconfirmed` |
 | `payment_authorized` | `completing` | `completion_started` |
 | `completing` | `complete` | `order_completed` |
+| `completing` | `needs_attention` | `completion_unconfirmed` |
 | `completing` | `payment_voiding` | `payment_void_started` |
 | `payment_voiding` | `cancelled` | `payment_voided` |
 | `payment_voiding` | `needs_attention` | `payment_void_failed` |
 
 `complete`, `rejected`, `cancelled`, and `needs_attention` have no outgoing transitions in this prototype. The service enforces this graph and records every transition. Unconfirmed authorization/completion results, including thrown adapter exceptions, move to `needs_attention` with a sanitized failure and an incremented version.
 
-`failure` and `recovery_failure` are nullable JSON objects with the TypeScript shape `{ code: string; message: string }`. Rejection records an authorization failure. During completion recovery, the void-start entry records the completion failure before calling the gateway, and cancellation retains it after a successful void; `needs_attention` retains the completion failure in `failure` and the void failure in `recovery_failure`. Adapters must validate provider responses; the service persists fixed, sanitized failure details rather than raw errors: no credentials, raw provider responses, or stack traces.
+`failure` and `recovery_failure` are nullable JSON objects with the TypeScript shape `{ code: string; message: string }`. Rejection records an authorization failure. During completion recovery, the void-start entry records the completion failure before calling the gateway, and cancellation retains it after a successful void. If that void cannot be confirmed, `needs_attention` retains the completion failure in `failure` and the void failure in `recovery_failure`. Unconfirmed authorization or completion records only `failure`; an unsuccessful explicit cancellation records only `recovery_failure`. Adapters must validate provider responses; the service persists fixed, sanitized failure details rather than raw errors: no credentials, raw provider responses, or stack traces.
 
 State/event constants and their TypeScript literal unions live in `src/domain/order.ts` and are re-exported by the schema alongside inferred select/insert types. PostgreSQL checks independently enforce those allowed values, initialization shape, valid version ranges, nonblank request IDs, and JSON-object shape. The database does not validate the fields inside failure objects or their relationship to a particular outcome; that belongs to the service.
 
@@ -83,7 +107,7 @@ State/event constants and their TypeScript literal unions live in `src/domain/or
 
 The service implements atomic claims and state/history writes. It does not include an automatic recovery worker. Recovery after crashes/timeouts requires provider reconciliation or a controlled retry using the same persisted key. The schema does not enforce key immutability or worker ownership; the service preserves keys; a future reconciliation worker must control recovery retries. PGlite serializes test transactions, so these tests are not multi-session network concurrency tests.
 
-Unique `(order_id, request_id)` and `(order_id, version)` constraints prevent duplicate operation IDs and duplicate history versions within an order. The foreign key prevents orphaned history and restricts deleting orders with history. A separate `order_commands` table records accepted per-order command identities. A unique `orders.creation_request_id` deduplicates creation globally. The service resolves replays before state validation and returns the current snapshot without repeating side effects.
+Unique `(order_id, request_id)` and `(order_id, version)` constraints on `order_transitions` prevent duplicate history request IDs and duplicate history versions within an order. The foreign key prevents orphaned history and restricts deleting orders with history. A separate `order_commands` table records accepted per-order command identities. A unique `orders.creation_request_id` deduplicates creation globally. The service resolves replays before state validation and returns the current snapshot without repeating side effects.
 
 Explicit cancellation is allowed from `initialized` (directly to `cancelled`, event `order_cancelled`) or `payment_authorized` (claim `payment_voiding`, then confirm the void). Pending and terminal states reject fresh cancellation commands; exact command replays are resolved first. Explicit cancellation is not a completion failure, so successful cancellation has no failure details. A confirmed void failure uses `needs_attention` with `recoveryFailure` and no fabricated completion failure; an unknown void outcome is surfaced as `needs_attention` for manual reconciliation, never as cancellation. The service enforces these rules.
 
@@ -140,4 +164,4 @@ The lazy `getDb()` client supports interactive transactions. Serverless pool lif
 
 ## Dependency audit
 
-The initial install has no production dependency advisories. Drizzle Kit 0.31.10 pulls an older esbuild through its legacy loader, producing four moderate development-dependency reports for GHSA-67mh-4wv8-2f99. The reported automatic fix downgrades Drizzle Kit across incompatible versions, so it was not applied. Track the upstream tooling fix; do not expose development tooling publicly.
+At the initial install, the audit reported no production dependency advisories. This is a historical result, not a current security assessment. Drizzle Kit 0.31.10 pulls an older esbuild through its legacy loader, producing four moderate development-dependency reports for GHSA-67mh-4wv8-2f99. The reported automatic fix downgrades Drizzle Kit across incompatible versions, so it was not applied. Track the upstream tooling fix; do not expose development tooling publicly.

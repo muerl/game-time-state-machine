@@ -30,34 +30,7 @@ Writes require `Content-Type: application/json` and at most 16 KiB. Additional f
 
 `authorize-payment` calls `OrderService.authorizePayment` for an initialized order; `complete` calls `OrderService.completeOrder` for an authorized order. `cancel` calls `OrderService.cancelOrder`: initialized orders cancel immediately; authorized orders must void their authorization before becoming cancelled. Fresh cancellation commands on pending or terminal states are rejected. The endpoint identifies the operation; an `action` body field is rejected. Clients supply no expected state or version; those fields are rejected. The service owns state validation, atomic claims, and recovery. `complete` means attempting completion and performing stage-appropriate recovery if needed; there is no public void endpoint.
 
-```sh
-curl -i http://127.0.0.1:3000/health
-
-curl -i -X POST http://127.0.0.1:3000/orders \
-  -H 'Content-Type: application/json' \
-  -H 'Idempotency-Key: create-order-1' \
-  -d '{}'
-
-curl -i -X POST http://127.0.0.1:3000/orders/11111111-1111-4111-8111-111111111111/authorize-payment \
-  -H 'Content-Type: application/json' \
-  -H 'Idempotency-Key: authorize-order-1' \
-  -d '{}'
-
-curl -i -X POST http://127.0.0.1:3000/orders/11111111-1111-4111-8111-111111111111/complete \
-  -H 'Content-Type: application/json' \
-  -H 'Idempotency-Key: complete-order-1' \
-  -d '{}'
-
-# Alternatively, cancel instead of completing:
-curl -i -X POST http://127.0.0.1:3000/orders/11111111-1111-4111-8111-111111111111/cancel \
-  -H 'Content-Type: application/json' \
-  -H 'Idempotency-Key: cancel-order-1' \
-  -d '{}'
-
-curl -i http://127.0.0.1:3000/orders/11111111-1111-4111-8111-111111111111
-```
-
-With the configured database and default stubs, authorization and completion succeed. The cancellation example is an alternative to completion; it cannot cancel an already complete order.
+With the configured database and default stubs, authorization and completion succeed. Use the [curl walkthrough](curl-examples.md) to capture generated order IDs, exercise both cancellation paths on separate orders, and inspect replay and error responses. Cancellation is an alternative to completion; it cannot cancel an already complete order.
 
 ## Responses
 
@@ -83,6 +56,10 @@ Error statuses:
 | 415 | Unsupported content type |
 | 503 | Order service unavailable (for example, missing database configuration) |
 | 500 | Unexpected failure; internal details excluded |
+
+## Operational scope
+
+`GET /orders/:id` supports inspection of a known order and its sanitized history. The API does not list orders needing attention, emit operator alerts, accept provider callbacks, or expose reconciliation/resolution commands. A `needs_attention` response records the issue but does not notify anyone. Investigation and controlled resolution without direct database access are future work described in [the service design](order-service.md#operational-visibility-and-transition-typing).
 
 ## Service wiring
 
